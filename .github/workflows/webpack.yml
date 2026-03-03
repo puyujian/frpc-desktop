@@ -11,6 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
+      max-parallel: 2
       matrix:
         node-version: [22.12.0]
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -23,10 +24,30 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Normalize lockfile sources for CI
+        run: |
+          node scripts/normalize-lockfile-sources.cjs
+
+      - name: Validate lockfile sources for CI
+        run: |
+          node scripts/normalize-lockfile-sources.cjs --check
 
       - name: Install dependencies
+        env:
+          npm_config_registry: https://registry.npmjs.org/
+          npm_config_fetch_retries: 5
+          npm_config_fetch_retry_factor: 2
+          npm_config_fetch_retry_mintimeout: 20000
+          npm_config_fetch_retry_maxtimeout: 120000
+          npm_config_fetch_timeout: 300000
+          npm_config_audit: "false"
+          npm_config_fund: "false"
+          npm_config_electron_mirror: https://github.com/electron/electron/releases/download/
         run: |
-          npm install
+          npm ci
 
       - name: Build Window
         if: ${{ matrix.os == 'windows-latest' }}

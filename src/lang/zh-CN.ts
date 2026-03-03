@@ -39,6 +39,7 @@ export default {
     button: {
       start: "启 动",
       stop: "断 开",
+      restart: "重 启",
       viewLog: "查看日志"
     },
     alert: {

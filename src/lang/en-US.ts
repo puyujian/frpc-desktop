@@ -39,6 +39,7 @@ export default {
     button: {
       start: "Start",
       stop: "Stop",
+      restart: "Restart",
       viewLog: "View Log"
     },
     alert: {

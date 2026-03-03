@@ -4,7 +4,7 @@ import router from "@/router";
 import { useFrpcDesktopStore } from "@/store/frpcDesktop";
 import { on, removeRouterListeners, send } from "@/utils/ipcUtils";
 import { useDebounceFn } from "@vueuse/core";
-import { ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { computed, defineComponent, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { ipcRouters } from "../../../electron/core/IpcRouter";
@@ -14,6 +14,7 @@ defineComponent({
 
 const frpcDesktopStore = useFrpcDesktopStore();
 const loading = ref(false);
+const restarting = ref(false);
 const { t } = useI18n();
 
 const handleStartFrpc = () => {
@@ -31,6 +32,15 @@ const handleButtonClick = useDebounceFn(() => {
   } else {
     handleStartFrpc();
   }
+}, 300);
+
+const handleRestartButtonClick = useDebounceFn(() => {
+  if (!frpcDesktopStore.frpcProcessRunning || loading.value) {
+    return;
+  }
+  restarting.value = true;
+  loading.value = true;
+  handleStopFrpc();
 }, 300);
 
 const uptime = computed(() => {
@@ -58,6 +68,7 @@ onMounted(() => {
     ipcRouters.LAUNCH.launch,
     () => {
       frpcDesktopStore.refreshRunning();
+      restarting.value = false;
       loading.value = false;
     },
     (bizCode: string, message: string) => {
@@ -99,14 +110,30 @@ onMounted(() => {
           });
         });
       }
+      restarting.value = false;
       loading.value = false;
     }
   );
 
-  on(ipcRouters.LAUNCH.terminate, () => {
-    frpcDesktopStore.refreshRunning();
-    loading.value = false;
-  });
+  on(
+    ipcRouters.LAUNCH.terminate,
+    () => {
+      frpcDesktopStore.refreshRunning();
+      if (restarting.value) {
+        handleStartFrpc();
+        return;
+      }
+      loading.value = false;
+    },
+    (_bizCode: string, message: string) => {
+      restarting.value = false;
+      loading.value = false;
+      ElMessage({
+        type: "error",
+        message
+      });
+    }
+  );
 });
 
 onUnmounted(() => {
@@ -197,17 +224,25 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <el-button
-                class="mt-4"
-                type="primary"
-                :disabled="loading"
-                @click="handleButtonClick"
-                >{{
-                  frpcDesktopStore.frpcProcessRunning
-                    ? $t("home.button.stop")
-                    : $t("home.button.start")
-                }}
-              </el-button>
+              <div class="flex flex-col gap-2 mt-4">
+                <el-button
+                  type="primary"
+                  :disabled="loading"
+                  @click="handleButtonClick"
+                  >{{
+                    frpcDesktopStore.frpcProcessRunning
+                      ? $t("home.button.stop")
+                      : $t("home.button.start")
+                  }}
+                </el-button>
+                <el-button
+                  v-if="frpcDesktopStore.frpcProcessRunning"
+                  plain
+                  :disabled="loading"
+                  @click="handleRestartButtonClick"
+                  >{{ $t("home.button.restart") }}</el-button
+                >
+              </div>
             </div>
           </div>
         </div>

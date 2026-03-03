@@ -440,29 +440,24 @@ const handleBatchDeleteProxy = () => {
   send(ipcRouters.PROXY.batchDeleteProxy, [...selectedProxyIds.value]);
 };
 
-const handleGetCopyProxyName = (sourceName: string) => {
-  const baseName = `${sourceName}_copy`;
-  const existNames = new Set(proxys.value.map(proxy => proxy.name));
-  if (!existNames.has(baseName)) {
-    return baseName;
-  }
-  let index = 2;
-  let currentName = `${baseName}_${index}`;
-  while (existNames.has(currentName)) {
-    index++;
-    currentName = `${baseName}_${index}`;
-  }
-  return currentName;
-};
-
 const handleCopyProxy = (proxy: FrpcProxy) => {
-  const copyProxy = _.cloneDeep(proxy);
+  const copyProxy = _.cloneDeep({
+    ...defaultForm,
+    ...proxy,
+    transport: {
+      ...defaultForm.transport,
+      ...(proxy.transport || {})
+    }
+  });
   copyProxy._id = "";
-  copyProxy.name = handleGetCopyProxyName(proxy.name);
-  // 复制出的代理默认禁用，避免直接生效导致端口冲突。
-  copyProxy.status = 0;
-  loading.value.form = 1;
-  send(ipcRouters.PROXY.createProxy, copyProxy);
+  copyProxy.name = "";
+  copyProxy.status = defaultForm.status;
+  editForm.value = copyProxy;
+  edit.value = {
+    title: t("proxy.createTitle"),
+    visible: true
+  };
+  editFormRef.value?.clearValidate();
 };
 
 const handleResetForm = () => {

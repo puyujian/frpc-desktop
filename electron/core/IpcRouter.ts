@@ -104,6 +104,14 @@ export const ipcRouters: IpcRouters = {
       path: "proxy/modifyProxyStatus",
       controller: "proxyController.modifyProxyStatus"
     },
+    batchModifyProxyStatus: {
+      path: "proxy/batchModifyProxyStatus",
+      controller: "proxyController.batchModifyProxyStatus"
+    },
+    batchDeleteProxy: {
+      path: "proxy/batchDeleteProxy",
+      controller: "proxyController.batchDeleteProxy"
+    },
     getLocalPorts: {
       path: "proxy/getLocalPorts",
       controller: "proxyController.getLocalPorts"

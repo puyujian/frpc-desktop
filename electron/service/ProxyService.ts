@@ -31,6 +31,11 @@ class ProxyService {
     await this._frpcProcessService.reloadFrpcProcess();
   }
 
+  async batchDeleteProxy(proxyIds: string[]) {
+    await this._proxyDao.deleteByIds(proxyIds);
+    await this._frpcProcessService.reloadFrpcProcess();
+  }
+
   async getLocalPorts(): Promise<Array<LocalPort>> {
     const command =
       process.platform === "win32"

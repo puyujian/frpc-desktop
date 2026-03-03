@@ -25,6 +25,7 @@ defineComponent({
 const { t } = useI18n();
 
 const proxys = ref<Array<FrpcProxy>>([]);
+const selectedProxyIds = ref<Array<string>>([]);
 const loading = ref({
   list: 1,
   form: 0,
@@ -272,6 +273,17 @@ const isStcpVisitors = computed(() => {
   );
 });
 
+const hasSelectedProxy = computed(() => selectedProxyIds.value.length > 0);
+const isAllProxySelected = computed(() => {
+  return (
+    proxys.value.length > 0 &&
+    selectedProxyIds.value.length === proxys.value.length
+  );
+});
+const isProxyPartiallySelected = computed(() => {
+  return hasSelectedProxy.value && !isAllProxySelected.value;
+});
+
 const frpcConfig = ref<FrpConfig>();
 
 const handleGetPortCount = (portString: string) => {
@@ -376,6 +388,81 @@ const handleLoadFrpcConfig = () => {
 const handleDeleteProxy = (proxy: FrpcProxy) => {
   send(ipcRouters.PROXY.deleteProxy, proxy._id);
   // ipcRenderer.send("proxy.deleteProxyById", proxy._id);
+};
+
+const handleProxySelectChange = (proxyId: string, checked: boolean) => {
+  if (checked) {
+    if (!selectedProxyIds.value.includes(proxyId)) {
+      selectedProxyIds.value.push(proxyId);
+    }
+    return;
+  }
+  selectedProxyIds.value = selectedProxyIds.value.filter(id => id !== proxyId);
+};
+
+const handleToggleSelectAll = (checked: boolean) => {
+  if (checked) {
+    selectedProxyIds.value = proxys.value.map(proxy => proxy._id);
+    return;
+  }
+  selectedProxyIds.value = [];
+};
+
+const handleSyncSelectedProxyIds = () => {
+  const validIds = new Set(proxys.value.map(proxy => proxy._id));
+  selectedProxyIds.value = selectedProxyIds.value.filter(id =>
+    validIds.has(id)
+  );
+};
+
+const handleBatchModifyProxyStatus = (status: number) => {
+  if (!hasSelectedProxy.value) {
+    return;
+  }
+  send(ipcRouters.PROXY.batchModifyProxyStatus, {
+    ids: [...selectedProxyIds.value],
+    status
+  });
+};
+
+const handleBatchEnableProxy = () => {
+  handleBatchModifyProxyStatus(1);
+};
+
+const handleBatchDisableProxy = () => {
+  handleBatchModifyProxyStatus(0);
+};
+
+const handleBatchDeleteProxy = () => {
+  if (!hasSelectedProxy.value) {
+    return;
+  }
+  send(ipcRouters.PROXY.batchDeleteProxy, [...selectedProxyIds.value]);
+};
+
+const handleGetCopyProxyName = (sourceName: string) => {
+  const baseName = `${sourceName}_copy`;
+  const existNames = new Set(proxys.value.map(proxy => proxy.name));
+  if (!existNames.has(baseName)) {
+    return baseName;
+  }
+  let index = 2;
+  let currentName = `${baseName}_${index}`;
+  while (existNames.has(currentName)) {
+    index++;
+    currentName = `${baseName}_${index}`;
+  }
+  return currentName;
+};
+
+const handleCopyProxy = (proxy: FrpcProxy) => {
+  const copyProxy = _.cloneDeep(proxy);
+  copyProxy._id = "";
+  copyProxy.name = handleGetCopyProxyName(proxy.name);
+  // 复制出的代理默认禁用，避免直接生效导致端口冲突。
+  copyProxy.status = 0;
+  loading.value.form = 1;
+  send(ipcRouters.PROXY.createProxy, copyProxy);
 };
 
 const handleResetForm = () => {
@@ -558,6 +645,7 @@ onMounted(() => {
   on(ipcRouters.PROXY.getAllProxies, data => {
     loading.value.list--;
     proxys.value = data;
+    handleSyncSelectedProxyIds();
   });
 
   on(ipcRouters.SYSTEM.selectLocalFile, data => {
@@ -613,9 +701,26 @@ onMounted(() => {
     // edit.value.visible = false;
   });
 
+  on(ipcRouters.PROXY.batchModifyProxyStatus, () => {
+    ElMessage({
+      type: "success",
+      message: t("common.modifySuccess")
+    });
+    handleLoadProxies();
+  });
+
   on(ipcRouters.PROXY.getLocalPorts, data => {
     loading.value.localPorts--;
     localPorts.value = data;
+  });
+
+  on(ipcRouters.PROXY.batchDeleteProxy, () => {
+    ElMessage({
+      type: "success",
+      message: t("common.deleteSuccess")
+    });
+    selectedProxyIds.value = [];
+    handleLoadProxies();
   });
 });
 
@@ -639,6 +744,8 @@ onUnmounted(() => {
   removeRouterListeners(ipcRouters.PROXY.deleteProxy);
   removeRouterListeners(ipcRouters.PROXY.getAllProxies);
   removeRouterListeners(ipcRouters.PROXY.modifyProxyStatus);
+  removeRouterListeners(ipcRouters.PROXY.batchModifyProxyStatus);
+  removeRouterListeners(ipcRouters.PROXY.batchDeleteProxy);
   removeRouterListeners(ipcRouters.PROXY.getLocalPorts);
   removeRouterListeners(ipcRouters.SYSTEM.selectLocalFile);
 });
@@ -647,9 +754,50 @@ onUnmounted(() => {
   <!--  <coming-soon />-->
   <div class="main">
     <breadcrumb>
-      <el-button type="primary" @click="handleOpenInsert">
-        <IconifyIconOffline icon="add" />
-      </el-button>
+      <div class="flex flex-wrap gap-2 items-center">
+        <el-checkbox
+          v-if="proxys && proxys.length > 0"
+          :indeterminate="isProxyPartiallySelected"
+          :model-value="isAllProxySelected"
+          @change="value => handleToggleSelectAll(Boolean(value))"
+        >
+          {{ t("common.select") }}
+        </el-checkbox>
+        <div v-if="hasSelectedProxy" class="text-xs text-gray-500">
+          {{ t("common.select") }}: {{ selectedProxyIds.length }}
+        </div>
+        <el-button
+          plain
+          size="small"
+          :disabled="!hasSelectedProxy"
+          @click="handleBatchEnableProxy"
+        >
+          <IconifyIconOffline class="mr-1" icon="toggle-on" />
+          {{ t("common.enable") }}
+        </el-button>
+        <el-button
+          plain
+          size="small"
+          :disabled="!hasSelectedProxy"
+          @click="handleBatchDisableProxy"
+        >
+          <IconifyIconOffline class="mr-1" icon="toggle-off" />
+          {{ t("common.disable") }}
+        </el-button>
+        <el-button
+          plain
+          type="danger"
+          size="small"
+          :disabled="!hasSelectedProxy"
+          @click="handleBatchDeleteProxy"
+        >
+          <IconifyIconOffline class="mr-1" icon="delete-rounded" />
+          {{ t("common.delete") }}
+        </el-button>
+        <el-button type="primary" @click="handleOpenInsert">
+          <IconifyIconOffline icon="add" />
+        </el-button>
+      </div>
     </breadcrumb>
     <div v-loading="loading.list > 0" class="app-container-breadcrumb">
       <template v-if="proxys && proxys.length > 0">
@@ -838,6 +986,13 @@ onUnmounted(() => {
 
               <div class="right">
                 <div class="flex flex-col gap-1 items-center">
+                  <el-checkbox
+                    :model-value="selectedProxyIds.includes(proxy._id)"
+                    @change="
+                      value =>
+                        handleProxySelectChange(proxy._id, Boolean(value))
+                    "
+                  />
                   <el-button
                     type="text"
                     size="small"
@@ -867,6 +1022,10 @@ onUnmounted(() => {
                               ? t("common.disable")
                               : t("common.enable")
                           }}
+                        </el-dropdown-item>
+                        <el-dropdown-item @click="handleCopyProxy(proxy)">
+                          <IconifyIconOffline class="mr-1" icon="content-copy" />
+                          {{ t("config.dialog.copyLink.title") }}
                         </el-dropdown-item>
                         <el-dropdown-item @click="handleDeleteProxy(proxy)">
                           <IconifyIconOffline

@@ -74,6 +74,30 @@ class ProxyController extends BaseController {
       });
   }
 
+  batchModifyProxyStatus(req: ControllerParam) {
+    this._proxyDao
+      .updateProxyStatusByIds(req.args.ids, req.args.status)
+      .then(() => {
+        req.event.reply(req.channel, ResponseUtils.success());
+      })
+      .catch((err: Error) => {
+        Logger.error("ProxyController.batchModifyProxyStatus", err);
+        req.event.reply(req.channel, ResponseUtils.fail(err));
+      });
+  }
+
+  batchDeleteProxy(req: ControllerParam) {
+    this._proxyService
+      .batchDeleteProxy(req.args)
+      .then(() => {
+        req.event.reply(req.channel, ResponseUtils.success());
+      })
+      .catch((err: Error) => {
+        Logger.error("ProxyController.batchDeleteProxy", err);
+        req.event.reply(req.channel, ResponseUtils.fail(err));
+      });
+  }
+
   getLocalPorts(req: ControllerParam) {
     this._proxyService
       .getLocalPorts()

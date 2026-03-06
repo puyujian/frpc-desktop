@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: ["main"]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -49,23 +52,38 @@ jobs:
         run: |
           npm ci
 
-      - name: Build Window
-        if: ${{ matrix.os == 'windows-latest' }}
+      - name: Build Window (no publish)
+        if: ${{ matrix.os == 'windows-latest' && github.event_name == 'pull_request' }}
+        run: |
+          npm run build:electron:win
+
+      - name: Release Window
+        if: ${{ matrix.os == 'windows-latest' && github.event_name == 'push' }}
         run: |
           npm run release:win
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
 
-      - name: Build MacOS
-        if: ${{ matrix.os == 'macos-latest' }}
+      - name: Build MacOS (no publish)
+        if: ${{ matrix.os == 'macos-latest' && github.event_name == 'pull_request' }}
+        run: |
+          npm run build:electron:mac
+
+      - name: Release MacOS
+        if: ${{ matrix.os == 'macos-latest' && github.event_name == 'push' }}
         run: |
           npm run release:mac
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
 
-      - name: Build Linux
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+      - name: Build Linux (no publish)
+        if: ${{ matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request' }}
+        run: |
+          npm run build:electron:linux
+
+      - name: Release Linux
+        if: ${{ matrix.os == 'ubuntu-latest' && github.event_name == 'push' }}
         run: |
           npm run release:linux
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}

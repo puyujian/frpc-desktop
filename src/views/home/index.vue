@@ -224,8 +224,9 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <div class="flex flex-col gap-2 mt-4">
+              <div class="home-action-group flex flex-col gap-2 mt-4 w-full">
                 <el-button
+                  class="w-full"
                   type="primary"
                   :disabled="loading"
                   @click="handleButtonClick"
@@ -237,6 +238,7 @@ onUnmounted(() => {
                 </el-button>
                 <el-button
                   v-if="frpcDesktopStore.frpcProcessRunning"
+                  class="w-full"
                   plain
                   :disabled="loading"
                   @click="handleRestartButtonClick"
@@ -312,5 +314,9 @@ $offset: 10px;
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.home-action-group :deep(.el-button + .el-button) {
+  margin-left: 0;
 }
 </style>

@@ -150,22 +150,37 @@ class FrpcProcessService {
   }
 
   async stopFrpcProcess() {
-    if (this._frpcProcess && this.isRunning()) {
-      Logger.debug(
-        `FrpcProcessService.stopFrpcProcess`,
-        `pid: ${this._frpcProcess.pid}`
-      );
-      treeKill(this._frpcProcess.pid, (error: Error) => {
-        if (error) {
-          throw error;
-        } else {
-          this._frpcProcess = null;
-          this._frpcLastStartTime = -1;
-          this._notification = -1;
-          // clearInterval(this._frpcProcessListener);
-        }
-      });
+    if (!this._frpcProcess) {
+      return;
     }
+    if (!this.isRunning()) {
+      this._frpcProcess = null;
+      this._frpcLastStartTime = -1;
+      this._notification = -1;
+      return;
+    }
+    Logger.debug(
+      `FrpcProcessService.stopFrpcProcess`,
+      `pid: ${this._frpcProcess.pid}`
+    );
+    const pid = this._frpcProcess.pid;
+    // 等待 treeKill 回调完成，避免“重启时先启动后停止”的时序问题
+    await new Promise<void>((resolve, reject) => {
+      treeKill(pid, (error?: Error) => {
+        if (error) {
+          const killError = error as NodeJS.ErrnoException;
+          if (killError.code !== "ESRCH") {
+            reject(error);
+            return;
+          }
+        }
+        resolve();
+      });
+    });
+    this._frpcProcess = null;
+    this._frpcLastStartTime = -1;
+    this._notification = -1;
+    // clearInterval(this._frpcProcessListener);
   }
 
   async reloadFrpcProcess() {

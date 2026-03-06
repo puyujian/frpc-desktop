@@ -56,6 +56,8 @@
     category: "public.app-category.utilities"
   },
   "win": {
+    // 避免在无符号链接权限环境下载/解压 winCodeSign 时失败
+    "signAndEditExecutable": false,
     "target": [
       {
         "target": "nsis",
